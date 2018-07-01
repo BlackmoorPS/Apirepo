@@ -46,9 +46,9 @@ app.delete('/user/:id', (req, res) => {
     return res.status(404).send();
   }
   usermodel.findByIdAndRemove(id).then((doc) => {
-    // if (!doc) {
-    //   return res.status(404).send();
-    // }
+    if (!doc) {
+      return res.status(404).send();
+    }
     res.send(doc);
   }).catch((e) => {
     res.status(400).send();
