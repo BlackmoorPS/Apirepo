@@ -4,6 +4,7 @@ const bodyparser = require('body-parser');
 const {usermodel} = require('./Mongdir/Models');
 const {ObjectID} = require('mongodb');
 const _ = require('lodash');
+const validator = require('validator');
 
 const port = process.env.PORT;
 
@@ -27,6 +28,24 @@ app.get('/user', (req,res)=>{
   usermodel.find().then((doc)=>{
     res.send(doc);
   }).catch((e)=>{res.status(400).send(e);});
+});
+
+var authenticate= (req,res,next)=>{
+  var token=req.header('x-header');
+  usermodel.findByToken(token).then((user)=>{
+    if(!user){
+      return Promise.reject();
+    }
+    req.user=user;
+    req.token=token;
+    next();
+  }).catch((e)=>{
+    res.status(401).send();
+  });
+}
+
+app.get('/user/private', authenticate, (req,res)=>{
+  res.send(req.user);
 });
 
 app.delete('/user/:id', (req, res) => {
