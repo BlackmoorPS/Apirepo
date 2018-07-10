@@ -11,7 +11,7 @@ const port = process.env.PORT;
 var app=express();
 
 app.use(bodyparser.json());
-
+//sign-up
 app.post('/user', (req,res)=>{
   var body= _.pick(req.body, ['email','password']);
   var newenrty= new usermodel(body);
@@ -23,13 +23,7 @@ app.post('/user', (req,res)=>{
     res.status(400).send(e);
   });
 });
-
-app.get('/user', (req,res)=>{
-  usermodel.find().then((doc)=>{
-    res.send(doc);
-  }).catch((e)=>{res.status(400).send(e);});
-});
-
+//authenticate middleware
 var authenticate= (req,res,next)=>{
   var token=req.header('x-header');
   usermodel.findByToken(token).then((user)=>{
@@ -43,52 +37,26 @@ var authenticate= (req,res,next)=>{
     res.status(401).send();
   });
 }
-
+//private route
 app.get('/user/private', authenticate, (req,res)=>{
   res.send(req.user);
 });
-
-app.delete('/user/:id', (req, res) => {
-  var id = req.params.id;
-  if (!ObjectID.isValid(id)) {
-    return res.status(404).send();
-  }
-  usermodel.findByIdAndRemove(id).then((doc) => {
-    if (!doc) {
-      return res.status(404).send();
-    }
+//private route get
+app.get('/user/private', authenticate, (req,res)=>{
+  usermodel.find().then((doc)=>{
     res.send(doc);
-  }).catch((e) => {
+  }).catch((e)=>{res.status(400).send(e);});
+});
+//private route logout
+app.delete('/user/private', authenticate, (req,res)=>{
+  req.user.logout(req.token).then(() => {
+    res.status(200).send();
+  }, () => {
     res.status(400).send();
   });
+  res.header('x-header', null).send();
 });
-
-app.patch('/user/:id', (req, res) => {
-  var id = req.params.id;
-  if (!ObjectID.isValid(id)) {
-    return res.status(404).send();
-  }
-  var body= _.pick(req.body, ['email','password']);
-  usermodel.findByIdAndUpdate(id, {$set:body}).then((doc) => {
-    res.send(doc);
-  }).catch((e) => {
-    res.status(400).send();
-  });
-});
-
-app.get('/user/:id', (req, res) => {
-  var id=req.params.id;
-  if (!ObjectID.isValid(id)) {
-    return res.status(404).send();
-  }
-  usermodel.findById(id).then((doc)=>{
-    if(!doc){
-      return res.status(400).send();
-    }
-    res.send({doc});
-  }).catch((e)=>{res.status(404).send(e);});
-});
-
+//port listener
 app.listen(port, ()=>{
   console.log(`App Connected via port ${port}`);
 })

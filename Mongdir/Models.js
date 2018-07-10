@@ -2,8 +2,11 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const _ = require('lodash');
 const validater = require('validator');
+const bcrypt = require('bcryptjs');
+const moment = require('moment');
 mongoose.Promise=global.Promise;
 mongoose.connect(process.env.MONGODB_URI);
+//schema
 var schema = mongoose.Schema;
 var userschema= new schema({
   email:{
@@ -12,15 +15,18 @@ var userschema= new schema({
     minlength: 7,
     unique: true,
     validate:{
-      validator: function(email){
-        validater.isEmail(email);
-      }
+      validator: validater.isEmail,
+      message: `{VALUE} is not a valid email`
     }
   },
   password:{
     required: true,
     type: String,
     minlength: 6
+  },
+  createdAt:{
+    default:moment(new Date()).format("DD-MMM-YYYY hh:mm a"),
+    type: String
   },
   tokens:[{
     access:{
@@ -33,10 +39,10 @@ var userschema= new schema({
     }
   }]
 });
-
+//schema methods (instance methods)
 userschema.methods.toJSON = function() {
   var userObject=this;
-  var user=_.pick(userObject, ['_id','email']);
+  var user=_.pick(userObject, ['_id','email','createdAt']);
   return user;
 }
 
@@ -49,7 +55,7 @@ userschema.methods.generateAuthToken = function() {
     return token;
   });
 }
-
+//schema statics(model methods)
 userschema.statics.findByToken = function(token) {
   var User=this;
   var decoded;
@@ -63,7 +69,31 @@ userschema.statics.findByToken = function(token) {
     'tokens.access': 'auth',
     'tokens.token':token});
 };
-
+//logout methods
+userschema.methods.logout= function(token) {
+  var user = this;
+  return user.update({
+    $pull: {
+      tokens: {token}
+    }
+  });
+}
+//mongoose middleware
+userschema.pre('save', function(next){
+  var user=this;
+  if(user.isModified('password')){
+    bcrypt.genSalt(10, (err, salt)=>{
+      bcrypt.hash(user.password, salt, (err, hash)=>{
+        user.password=hash;
+        next();
+      });
+});
+  }
+  else {
+    next();
+  }
+});
+//mongoose model
 var usermodel= mongoose.model('user', userschema);
 
 module.exports={usermodel};
